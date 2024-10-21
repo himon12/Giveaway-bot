@@ -1,30 +1,38 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+l require('dotenv').config();
+const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
+
+// Create a new client instance
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+
+// Command collection
+client.commands = new Collection();
+
+// Load commands dynamically
 const fs = require('fs');
-
-dotenv.config();
-const client = new Client({ 
-    intents: [
-        GatewayIntentBits.Guilds, 
-        GatewayIntentBits.GuildMessages, 
-        GatewayIntentBits.MessageContent
-    ] 
-});
-
-// Ensure your bot has the following permissions when invited:
-// "ADMINISTRATOR" permission
-client.commands = new Map();
 const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+
 for (const file of commandFiles) {
     const command = require(`./commands/${file}`);
     client.commands.set(command.name, command);
 }
 
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URL, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+    .then(() => console.log('Connected to MongoDB'))
+    .catch(err => console.error('MongoDB connection error:', err));
+
+// When the client is ready, run this code
 client.once('ready', () => {
-    console.log(`Logged in as ${client.user.tag}`);
+    console.log(`Logged in as ${client.user.tag}!`);
+    // Set rich presence
+    client.user.setActivity('giveaways', { type: 'WATCHING' });
 });
 
+// Command handling
 client.on('messageCreate', async (message) => {
     if (!message.content.startsWith('+') || message.author.bot) return;
 
@@ -35,14 +43,6 @@ client.on('messageCreate', async (message) => {
     if (!command) return;
 
     try {
-        // Check if the bot has the required permissions before executing the command
-        const requiredPermissions = command.permissions || []; // Example: ['KICK_MEMBERS', 'BAN_MEMBERS']
-        const botMember = message.guild.members.cache.get(client.user.id);
-
-        if (requiredPermissions.length && !botMember.permissions.has(requiredPermissions)) {
-            return message.reply('I do not have the necessary permissions to perform this action.');
-        }
-
         await command.execute(message, args);
     } catch (error) {
         console.error(error);
@@ -50,14 +50,7 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-}).then(() => {
-    console.log('Connected to MongoDB');
-}).catch(err => console.error(err));
-
+// Auto-cleanup expired premium codes every 24 hours
 setInterval(async () => {
     try {
         const expiredCodes = await PremiumCode.find({ createdAt: { $lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } });
@@ -70,6 +63,6 @@ setInterval(async () => {
     }
 }, 24 * 60 * 60 * 1000); // Check every 24 hours
 
-
-
+// Login to Discord with your app's token
 client.login(process.env.DISCORD_TOKEN);
+
