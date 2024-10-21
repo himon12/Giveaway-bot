@@ -1,4 +1,4 @@
-l require('dotenv').config();
+require('dotenv').config();
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const mongoose = require('mongoose');
 
@@ -65,4 +65,3 @@ setInterval(async () => {
 
 // Login to Discord with your app's token
 client.login(process.env.DISCORD_TOKEN);
-
